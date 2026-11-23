@@ -16,6 +16,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 local points, blueprint, selected = {}, {}, {}
 local highlights = {}
+local previewFolder = nil
 local drawing, activeInput, dragging, minimized = false, nil, false, false
 local wireOnly = false
 local MIN_POINTS, MAX_PARTS, MAX_HIGHLIGHTS = 5, 1500, 500
@@ -90,6 +91,59 @@ end
 local function clearHighlights()
     for _,h in ipairs(highlights) do if h.Parent then h:Destroy() end end
     table.clear(highlights)
+end
+local function removePreview()
+    if previewFolder then
+        previewFolder:Destroy()
+        previewFolder = nil
+    end
+end
+local function showPreview()
+    if #blueprint == 0 then say("Capture a design before previewing it."); return end
+    if previewFolder then
+        removePreview()
+        previewBtn.Text = "PREVIEW 3D BLUEPRINT"
+        say("3D preview hidden.")
+        return
+    end
+    local cam = Workspace.CurrentCamera
+    if not cam then say("Camera not available."); return end
+
+    local folder = Instance.new("Folder")
+    folder.Name = "LocalWireArtBlueprintPreview"
+    folder.Parent = Workspace
+    previewFolder = folder
+
+    -- Float the local-only preview in front of the camera, away from the real build.
+    local origin = cam.CFrame * CFrame.new(0, 0, -18)
+    for _, data in ipairs(blueprint) do
+        local part = Instance.new("Part")
+        part.Name = "Preview_" .. tostring(data.name or "Part")
+        part.Anchored = true
+        part.CanCollide = false
+        part.CanTouch = false
+        part.CanQuery = false
+        part.CastShadow = false
+        part.Size = Vector3.new(
+            math.max(0.05, tonumber(data.sx) or 1),
+            math.max(0.05, tonumber(data.sy) or 1),
+            math.max(0.05, tonumber(data.sz) or 1)
+        )
+        part.Color = Color3.fromRGB(
+            math.clamp(tonumber(data.r) or 180, 0, 255),
+            math.clamp(tonumber(data.g) or 180, 0, 255),
+            math.clamp(tonumber(data.b) or 180, 0, 255)
+        )
+        local material = Enum.Material[ tostring(data.material or "SmoothPlastic") ]
+        if material then part.Material = material end
+        part.Transparency = math.clamp(tonumber(data.transparency) or 0, 0, 0.65)
+        part.CFrame = origin
+            * CFrame.new(tonumber(data.x) or 0, tonumber(data.y) or 0, tonumber(data.z) or 0)
+            * CFrame.Angles(tonumber(data.rx) or 0, tonumber(data.ry) or 0, tonumber(data.rz) or 0)
+        part.Parent = folder
+    end
+    previewBtn.Text = "HIDE 3D PREVIEW"
+    say("Showing local 3D preview: " .. #blueprint .. " parts. It is not placed in the world.")
 end
 local function segment(a,b,color)
     local d = b-a
@@ -196,7 +250,7 @@ local function capture()
             transparency=p.Transparency
         })
     end
-    clearHighlights(); table.clear(selected)
+    clearHighlights(); removePreview(); previewBtn.Text = "PREVIEW 3D BLUEPRINT"; table.clear(selected)
     for _,p in ipairs(parts) do
         table.insert(selected,p)
         if #highlights<MAX_HIGHLIGHTS then
@@ -225,17 +279,21 @@ button("COPY BLUEPRINT JSON",202,Color3.fromRGB(35,145,115),function()
     if typeof(setclipboard)=="function" then setclipboard(json); say("Copied "..#blueprint.." parts as JSON.")
     else print(json); say("Clipboard unavailable; JSON printed to output.") end
 end)
-button("CLEAR SELECTION",242,Color3.fromRGB(90,94,112),function()
+previewBtn = button("PREVIEW 3D BLUEPRINT",242,Color3.fromRGB(35,125,145),showPreview)
+button("CLEAR SELECTION",282,Color3.fromRGB(90,94,112),function()
     table.clear(blueprint); table.clear(selected); table.clear(points)
-    clearHighlights(); clearLines(); say("Selection and blueprint cleared.")
+    clearHighlights(); clearLines(); removePreview()
+    previewBtn.Text = "PREVIEW 3D BLUEPRINT"
+    say("Selection and blueprint cleared.")
 end)
+panel.Size = UDim2.fromOffset(278,322)
 
 minimize.MouseButton1Click:Connect(function()
     minimized=not minimized
     for _,v in ipairs(panel:GetChildren()) do
         if v~=title and v~=minimize and v:IsA("GuiObject") then v.Visible=not minimized end
     end
-    panel.Size=minimized and UDim2.fromOffset(278,40) or UDim2.fromOffset(278,282)
+    panel.Size=minimized and UDim2.fromOffset(278,40) or UDim2.fromOffset(278,322)
     minimize.Text=minimized and "+" or "—"
 end)
 
