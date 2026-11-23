@@ -1,23 +1,19 @@
-# Lumber Tycoon Wire Art Copier
+# Lumber Tycoon Wire Art Lasso
 
-A local-only visual blueprint helper for Roblox.
+A local-only visual blueprint helper.
 
-## What it does
-- Scans nearby replicated BaseParts whose names contain `wire`, `cable`, `connector`, or `wiring`.
-- Records each match's position and rotation relative to your character, size, color, material, and transparency.
-- Exports the scan as JSON using the executor clipboard function when available.
-- Includes a draggable, touch-friendly panel.
+## How to use
+1. Run `WireArtCopier.lua` in your local client script environment.
+2. Look at the wire-art design and tap **START LASSO**.
+3. Drag your finger around the visible artwork, then release.
+4. The script records matching visible wire-named parts enclosed by the lasso.
+5. Tap **COPY BLUEPRINT JSON** to save the captured layout data.
 
-## What it does not do
-- It does not fire RemoteEvents or RemoteFunctions.
-- It does not change server-owned objects, duplicate another player's build, or automatically place parts.
-- A blueprint is a visual reference for rebuilding on a base where you have permission.
+The blueprint records positions relative to your character at capture time, rotations, sizes, colors, materials, and transparency.
 
-## Use
-1. Open `WireArtCopier.lua` in your local client script environment.
-2. Stand near the design and press **SCAN NEARBY WIRE ART**.
-3. Press **COPY BLUEPRINT TO CLIPBOARD** to copy the JSON.
-4. Paste the JSON into a text file to keep the blueprint.
-
-## Limitations
-The scanner uses part names to identify wire pieces. If a game's wire parts have generic names, the scan may miss them. The scan radius is 250 studs from your character.
+## Limits and permissions
+- This is a visual selection and blueprint exporter, not an automatic copier or placer.
+- It does not call game remotes, modify server state, or duplicate another player's placed objects.
+- It can only capture locally replicated parts whose names include `wire`, `cable`, `connector`, or `wiring`.
+- Only parts whose projected center is inside the lasso and currently on screen are captured.
+- Use the blueprint as a reference to rebuild where you have permission.
