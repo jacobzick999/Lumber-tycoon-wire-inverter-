@@ -298,6 +298,8 @@ local function capture()
         hi=Vector3.new(math.max(hi.X,v.X),math.max(hi.Y,v.Y),math.max(hi.Z,v.Z))
     end
     local origin=CFrame.new((lo+hi)/2)
+    stopTracker(); table.clear(trackerPlaced); table.clear(trackerSeen)
+    if trackerBtn then trackerBtn.Text = "START BUILD TRACKER" end
     table.clear(blueprint)
     for _,p in ipairs(parts) do
         local rel=origin:ToObjectSpace(p.CFrame)
