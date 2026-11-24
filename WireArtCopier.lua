@@ -17,6 +17,12 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local points, blueprint, selected = {}, {}, {}
 local highlights = {}
 local previewFolder = nil
+local trackerConnection = nil
+local trackerActive = false
+local trackerSeen = {}
+local trackerPlaced = {}
+local trackerBaseline = {}
+local trackerBtn = nil
 local drawing, activeInput, dragging, minimized = false, nil, false, false
 local wireOnly = false
 local MIN_POINTS, MAX_PARTS, MAX_HIGHLIGHTS = 5, 1500, 500
@@ -97,6 +103,60 @@ local function removePreview()
         previewFolder:Destroy()
         previewFolder = nil
     end
+end
+local function stopTracker()
+    if trackerConnection then trackerConnection:Disconnect(); trackerConnection=nil end
+    trackerActive=false
+end
+local function partMatches(part, data)
+    if not part or not part:IsA("BasePart") then return false end
+    local function close(a,b,t) return math.abs(a-b)<=t end
+    if not (close(part.Size.X, data.sx, 0.12) and close(part.Size.Y, data.sy, 0.12) and close(part.Size.Z, data.sz, 0.12)) then return false end
+    if part.Material.Name ~= tostring(data.material or "SmoothPlastic") then return false end
+    if not (close(part.Color.R*255, data.r, 8) and close(part.Color.G*255, data.g, 8) and close(part.Color.B*255, data.b, 8)) then return false end
+    if not close(part.Transparency, tonumber(data.transparency) or 0, 0.08) then return false end
+    return true
+end
+local function updateTrackerStatus()
+    local total=#blueprint
+    local done=#trackerPlaced
+    if trackerBtn then trackerBtn.Text=trackerActive and "STOP BUILD TRACKER" or "START BUILD TRACKER" end
+    say("Build progress: "..done.." / "..total.." matching pieces detected. Detection checks new parts' size, color, and material; it does not verify exact placement.")
+end
+local function startTracker()
+    if #blueprint==0 then say("Capture a blueprint before starting the build tracker."); return end
+    stopTracker()
+    table.clear(trackerSeen); table.clear(trackerPlaced); table.clear(trackerBaseline)
+    for _,obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then trackerBaseline[obj]=true end
+    end
+    trackerActive=true
+    trackerConnection=Workspace.DescendantAdded:Connect(function(obj)
+        if not trackerActive or not obj:IsA("BasePart") then return end
+        if obj:IsDescendantOf(player.Character or gui) then return end
+        if previewFolder and obj:IsDescendantOf(previewFolder) then return end
+        if trackerSeen[obj] or trackerBaseline[obj] then return end
+        trackerSeen[obj]=true
+        for i,data in ipairs(blueprint) do
+            local already=0
+            for _,entry in ipairs(trackerPlaced) do if entry.index==i then already=already+1 end end
+            local required=1
+            for _,other in ipairs(blueprint) do
+                if other.sx==data.sx and other.sy==data.sy and other.sz==data.sz and other.r==data.r and other.g==data.g and other.b==data.b and other.material==data.material then
+                    -- Count identical blueprint pieces as separate requirements below.
+                end
+            end
+            if already<required and partMatches(obj,data) then
+                table.insert(trackerPlaced,{part=obj,index=i})
+                updateTrackerStatus()
+                break
+            end
+        end
+    end)
+    updateTrackerStatus()
+end
+local function toggleTracker()
+    if trackerActive then stopTracker(); updateTrackerStatus() else startTracker() end
 end
 local function showPreview()
     if #blueprint == 0 then say("Capture a design before previewing it."); return end
@@ -280,20 +340,22 @@ button("COPY BLUEPRINT JSON",202,Color3.fromRGB(35,145,115),function()
     else print(json); say("Clipboard unavailable; JSON printed to output.") end
 end)
 previewBtn = button("PREVIEW 3D BLUEPRINT",242,Color3.fromRGB(35,125,145),showPreview)
-button("CLEAR SELECTION",282,Color3.fromRGB(90,94,112),function()
-    table.clear(blueprint); table.clear(selected); table.clear(points)
+trackerBtn = button("START BUILD TRACKER",282,Color3.fromRGB(120,105,45),toggleTracker)
+button("CLEAR SELECTION",322,Color3.fromRGB(90,94,112),function()
+    stopTracker(); table.clear(trackerPlaced); table.clear(trackerSeen); table.clear(blueprint); table.clear(selected); table.clear(points)
+    if trackerBtn then trackerBtn.Text = "START BUILD TRACKER" end
     clearHighlights(); clearLines(); removePreview()
     previewBtn.Text = "PREVIEW 3D BLUEPRINT"
     say("Selection and blueprint cleared.")
 end)
-panel.Size = UDim2.fromOffset(278,322)
+panel.Size = UDim2.fromOffset(278,362)
 
 minimize.MouseButton1Click:Connect(function()
     minimized=not minimized
     for _,v in ipairs(panel:GetChildren()) do
         if v~=title and v~=minimize and v:IsA("GuiObject") then v.Visible=not minimized end
     end
-    panel.Size=minimized and UDim2.fromOffset(278,40) or UDim2.fromOffset(278,322)
+    panel.Size=minimized and UDim2.fromOffset(278,40) or UDim2.fromOffset(278,362)
     minimize.Text=minimized and "+" or "—"
 end)
 
